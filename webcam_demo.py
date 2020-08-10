@@ -110,7 +110,7 @@ def main():
                 
             
             
-            # cv2.imshow('posenet', overlay_image)
+            cv2.imshow('posenet', overlay_image)
             video.write(overlay_image)
 
             frame_count += 1

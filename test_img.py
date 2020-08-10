@@ -18,7 +18,9 @@ args = parser.parse_args()
 
 def main():
 
+    # with tf.compat.v1.Session() as sess:
     with tf.Session() as sess:
+    
         model_cfg, model_outputs = posenet.load_model(args.model, sess)
         output_stride = model_cfg['output_stride']
 
@@ -26,9 +28,8 @@ def main():
             if not os.path.exists(args.output_dir):
                 os.makedirs(args.output_dir)
 
-        filenames = [
-            f.path for f in os.scandir(args.image_dir) if f.is_file() and f.path.endswith(('.png', '.jpg'))]
-
+        # filenames = [f.path for f in os.scandir(args.image_dir) if f.is_file() and f.path.endswith(('.png', '.jpg'))]
+        filenames = ["./images/multi1.jpg"]
         start = time.time()
         for f in filenames:
             input_image, draw_image, output_scale = posenet.read_imgfile(
@@ -57,6 +58,9 @@ def main():
             keypoints_eyes = (keypoint_coords[:,1,:], keypoint_coords[:,2,:])
             keypoints_nose = keypoint_coords[:,0,:]
 
+
+            whole_img = cv2.imread(f)
+
             for i in range(10):
 
                 ## forhead location (up_left + right_down)
@@ -68,11 +72,37 @@ def main():
 
                 ## lip location
                 lip_dis = abs(keypoints_eyes[0][i][1]-keypoints_eyes[1][i][1])*1.5
-                lip_ul = (int(keypoints_eyes[1][i][1]), int(keypoints_eyes[0][i][0]+0.5*lip_dis))
-                lip_rd = (int(keypoints_eyes[0][i][1]), int(keypoints_eyes[1][i][0]+lip_dis))
+                lip_y_lb = int(keypoints_nose[i][0]+0.17*lip_dis)
+                lip_y_ub = int(keypoints_nose[i][0]+0.6*lip_dis)
+                lip_x_lb = int(keypoints_eyes[0][i][1]-0.7*lip_dis)
+                lip_x_ub = int(keypoints_eyes[1][i][1]+0.7*lip_dis) 
+
+                # lip_y_lb = int(keypoints_eyes[0][i][0]-0.1*lip_dis)
+                # lip_y_ub = int(keypoints_eyes[1][i][0]+0.1*lip_dis)
+                # lip_x_lb = int(keypoints_eyes[0][i][1]-0.2*lip_dis)
+                # lip_x_ub = int(keypoints_eyes[1][i][1]+1.2*lip_dis) 
+
+                lip_ul = (lip_x_lb, lip_y_lb)
+                lip_rd = (lip_x_ub, lip_y_ub)
                 lip_keypoints.append([lip_ul, lip_rd])
                 # print(lip1, lip2, lip3, lip4)
                 
+                try:
+                    if pose_scores[i] > 0.42:
+                        # draw_image = whole_img.copy()
+                        # print (lip_ul[1], lip_rd[1], lip_ul[0], lip_rd[0])
+                        lip_img = whole_img[lip_y_lb:lip_y_ub, lip_x_lb:lip_x_ub]
+                        # lip_img = cv2.getRectSubPix(whole_img, (lip_ul[0], lip_rd[0]), (lip_ul[1], lip_rd[1]))
+                    
+                        p_path = "%s/lips/lip_%d.jpg"%(args.output_dir, i+1)
+                        cv2.imwrite(p_path, lip_img)
+                    else:
+                        # no lip detected
+                        pass
+
+                except:
+                    pass
+
             #########################
 
 
@@ -88,8 +118,6 @@ def main():
                 draw_image = img.copy()
                     
                 for i in range(10):
-
-                    print("hh ", lip_keypoints[i])
                 
                     if lip_keypoints[i][0][1]==0:
                         continue
@@ -110,6 +138,8 @@ def main():
 
             
 
+            ## print points score and coords
+            
             if not args.notxt:
                 print("Results for image: %s" % f)
                 for pi in range(len(pose_scores)):
@@ -118,8 +148,7 @@ def main():
                     print('Pose #%d, score = %f' % (pi, pose_scores[pi]))
                     for ki, (s, c) in enumerate(zip(keypoint_scores[pi, :], keypoint_coords[pi, :, :])):
                         print('Keypoint %s, score = %f, coord = %s' % (posenet.PART_NAMES[ki], s, c))
-
-        print('Average FPS:', len(filenames) / (time.time() - start))
+            
 
 
 if __name__ == "__main__":
