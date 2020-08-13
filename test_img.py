@@ -16,6 +16,9 @@ parser.add_argument('--output_dir', type=str, default='./output')
 args = parser.parse_args()
 
 
+point_names = ["leftShoulder", "rightShoulder", "leftElbow", "rightElbow", "leftWrist", "rightWrist"]
+pose_list = []
+
 def main():
 
     # with tf.compat.v1.Session() as sess:
@@ -29,7 +32,7 @@ def main():
                 os.makedirs(args.output_dir)
 
         # filenames = [f.path for f in os.scandir(args.image_dir) if f.is_file() and f.path.endswith(('.png', '.jpg'))]
-        filenames = ["./images/multi1.jpg"]
+        filenames = ["./images/pose4.jpg"]
         start = time.time()
         for f in filenames:
             input_image, draw_image, output_scale = posenet.read_imgfile(
@@ -108,7 +111,7 @@ def main():
 
             if args.output_dir:
 
-                # draw_image = posenet.draw_skel_and_kp(draw_image, pose_scores, keypoint_scores, keypoint_coords, min_pose_score=0.25, min_part_score=0.25)
+                draw_image = posenet.draw_skel_and_kp(draw_image, pose_scores, keypoint_scores, keypoint_coords, min_pose_score=0.25, min_part_score=0.25)
 
                 ################### justin add
                 COLOR_RED = (255,0, 0)
@@ -117,7 +120,7 @@ def main():
                 img = cv2.imread(f)
                 draw_image = img.copy()
                     
-                for i in range(10):
+                for i in range(1):
                 
                     if lip_keypoints[i][0][1]==0:
                         continue
@@ -129,7 +132,15 @@ def main():
                     cv2.rectangle(draw_image, lip_keypoints[i][0], lip_keypoints[i][1], COLOR_RED, 2)
                     txt = 'lips'
                     cv2.putText(draw_image, txt, (lip_keypoints[i][1][0], lip_keypoints[i][1][1]), cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_RED, 2)                
-                
+                    
+                    for ki, (s, c) in enumerate(zip(keypoint_scores[i, :], keypoint_coords[i, :, :])):
+                        # print('Keypoint %s, score = %f, coord = %s' % (posenet.PART_NAMES[ki], s, c))
+                        part = posenet.PART_NAMES[ki]
+                        if part in point_names:
+                            cv2.circle(draw_image, (int(round(c[1])), int(round(c[0]))), 5, COLOR_RED, 2)
+                            txt = part
+                            cv2.putText(draw_image, txt, (int(round(c[1])), int(round(c[0]))), cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_RED, 2)                
+                    
                 # cv2.imshow("test", draw_image)  
                     
                 ###############################
@@ -145,11 +156,24 @@ def main():
                 for pi in range(len(pose_scores)):
                     if pose_scores[pi] == 0.:
                         break
+                    
+                    ## each pose
+                    pose_dic = {}
                     print('Pose #%d, score = %f' % (pi, pose_scores[pi]))
+                    
                     for ki, (s, c) in enumerate(zip(keypoint_scores[pi, :], keypoint_coords[pi, :, :])):
-                        print('Keypoint %s, score = %f, coord = %s' % (posenet.PART_NAMES[ki], s, c))
-            
+                        # print('Keypoint %s, score = %f, coord = %s' % (posenet.PART_NAMES[ki], s, c))
+                        part = posenet.PART_NAMES[ki]
+                        if part in point_names:
+                            pose_dic[part] = (c[0], c[1])
+                    pose_list.append(pose_dic)
+                    print (pose_dic)
+
 
 
 if __name__ == "__main__":
     main()
+    for dic in pose_list:
+        for key,val in dic.items():
+            print (key, val)
+        # cal_angle(dic)
